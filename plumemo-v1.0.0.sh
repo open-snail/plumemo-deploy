@@ -51,15 +51,22 @@ install_theme_url_menu_list=(
 # 安装plumemo服务端
 install_admin_version_menu_list=(
   1.v1.1.0
+  2.v1.2.0
 )
 
 install_admin_version_list=(
   v1.1.0
+  v1.2.0
 )
 
-install_admin_url_list=(
+install_admin_url_v1_1_0_list=(
   https://github.com/byteblogs168/plumemo/releases/download/v1.1.0/plumemo-v1.1.0.jar
   https://github.com/byteblogs168/plumemo/releases/download/v1.1.0/admin.zip
+)
+
+install_admin_url_v1_2_0_list=(
+  https://github.com/byteblogs168/plumemo/releases/download/v1.2.0/plumemo-v1.2.0.jar
+  https://github.com/byteblogs168/plumemo-admin/releases/download/v2.1.0/admin.zip
 )
 
 function echo_fun(){
@@ -267,7 +274,11 @@ function menu_admin(){
     case $num in
         1)
          echo_fun 1  ${install_admin_version_list[0]}
-         init_admin
+         init_admin  ${install_admin_url_v1_1_0_list[0]} ${install_admin_url_v1_1_0_list[1]} ${install_admin_version_list[0]}
+         ;;
+        2)
+         echo_fun 1  ${install_admin_version_list[1]}
+         init_admin  ${install_admin_url_v1_2_0_list[0]} ${install_admin_url_v1_2_0_list[1]} ${install_admin_version_list[1]}
         ;;
         *)
         echo_fun 3 您输入的选项不存在
@@ -277,17 +288,20 @@ function menu_admin(){
 }
 
 function init_admin(){
-     wget_install_packet_fun ${SOFTWARE_PATH}/helloblog-${install_admin_version_list[0]}.jar ${install_admin_url_list[0]}
+     wget_install_packet_fun ${SOFTWARE_PATH}/plumemo-$3.jar $1
      cd ${SOFTWARE_PATH}
-     cp helloblog-${install_admin_version_list[0]}.jar ${ADMIN_PLUMEMO_INSTALL_PATH}
+     cp plumemo-$3.jar ${ADMIN_PLUMEMO_INSTALL_PATH}
 
-     wget_install_packet_fun ${SOFTWARE_PATH}/admin.zip ${install_admin_url_list[1]}
+     wget_install_packet_fun ${SOFTWARE_PATH}/admin.zip $2
      check_cluster_package unzip
      cd ${SOFTWARE_PATH}
      unzip admin.zip
      mv ${SOFTWARE_PATH}/dist admin
      cp -r ${SOFTWARE_PATH}/admin ${ADMIN_PLUMEMO_INSTALL_PATH}
      rm -rf ${SOFTWARE_PATH}/admin
+
+     echo_fun 5 为您生成安装脚本
+     create_start_exec $3
 }
 
 function create_start_exec(){
@@ -324,8 +338,8 @@ function create_start_exec(){
     echo_fun 5 正在为您生成脚本
 
     echo -e '#!/bin/bash -l'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'var='${ADMIN_PLUMEMO_INSTALL_PATH}'/helloblog-'${install_admin_version_list[0]}'.jar'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'JARFILE=helloblog-'${install_admin_version_list[0]}'.jar' >> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
+    echo -e 'var='${ADMIN_PLUMEMO_INSTALL_PATH}'/plumemo-'$1'.jar'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
+    echo -e 'JARFILE=plumemo-'$1'.jar' >> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
     echo -e 'PID=$(ps -ef|grep -w "$var" | grep -v grep |awk "{printf $2}")'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
 
     echo -e 'if [ ! -d "./logs" ]; then'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
@@ -363,8 +377,6 @@ function step_admin_fun(){
    check_cluster_catalog_exist ${ADMIN_PLUMEMO_INSTALL_PATH}/admin admin
    echo_install_admin_version_list
    menu_admin
-   echo_fun 5 为您生成安装脚本
-   create_start_exec
 
    cd ${ADMIN_PLUMEMO_INSTALL_PATH}
    chmod  +x deploy.sh
