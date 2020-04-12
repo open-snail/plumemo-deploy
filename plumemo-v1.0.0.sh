@@ -340,7 +340,7 @@ function create_start_exec(){
     echo -e '#!/bin/bash -l'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
     echo -e 'var='${ADMIN_PLUMEMO_INSTALL_PATH}'/plumemo-'$1'.jar'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
     echo -e 'JARFILE=plumemo-'$1'.jar' >> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'PID=$(ps -ef|grep -w "$var" | grep -v grep |awk "{printf $2}")'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
+    echo -e 'PID=$(ps -ef|grep -w "$var" | grep -v grep |awk '\''{printf $2}'\'')'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
 
     echo -e 'if [ ! -d "./logs" ]; then'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
     echo -e '    mkdir ./logs'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
