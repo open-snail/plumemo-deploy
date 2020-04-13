@@ -528,20 +528,31 @@ function mysql_install(){
    echo_fun 5 请输入root用户密码[ENTER默认为root]
    read -p "root_password=" root_password
    echo ''
+   
+   echo_fun 5 请输入plumemo用户密码[ENTER默认为123456]
+   read -p "plumemo_password=" plumemo_password
+   echo ''
 
    if [ ! -n "${root_password}" ]; then
        root_password=root
+   fi
+   
+   if [ ! -n "${plumemo_password}" ]; then
+       plumemo_password=123456
    fi
 
    echo_fun 4  当前密码为${root_password}
    mysql  -uroot <<eof
      use mysql;
      update user set authentication_string = password('${root_password}'), password_expired = 'N', password_last_changed = now() where user = 'root';
-     update user set host = '%' where user = 'root';    #允许所有ip连接
      flush privileges;
      GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '${root_password}';
      flush privileges;
      GRANT ALL PRIVILEGES ON *.* TO 'root'@localhost IDENTIFIED BY '${root_password}';
+     flush privileges;
+     CREATE DATABASE plumemo DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+     CREATE USER 'plumemo'@'host' IDENTIFIED BY '${plumemo_password}';
+     grant all privileges on plumemo.* to plumemo@localhost identified by '${plumemo_password}';
      flush privileges;
 eof
 
