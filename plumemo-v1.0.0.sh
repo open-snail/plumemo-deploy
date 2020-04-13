@@ -307,18 +307,18 @@ function init_admin(){
 function create_start_exec(){
    echo_fun 1 下面我们会为您生成启动脚本,请填写数据库相关信息
     rm -f ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo_fun 4 请输入mysql的用户名[ENTER默认root]
+    echo_fun 4 请输入mysql的用户名[ENTER默认plumemo]
     read -p "username=" username
     echo ''
     if [ ! -n "${username}" ]; then
-      username=root
+      username=plumemo
     fi
 
-    echo_fun 4 请输入mysql的密码[ENTER默认root]
+    echo_fun 4 请输入mysql的密码[ENTER默认123456]
     read -p "password=" password
     echo ''
     if [ ! -n "${password}" ]; then
-      password=root
+      password=123456
     fi
 
     echo_fun 4 请输入mysql的数据库名称[ENTER默认plumemo]
