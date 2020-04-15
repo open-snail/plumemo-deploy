@@ -26,7 +26,8 @@ install_list=(
  3.安装nginx,版本:1.17.9
  4.安装plumemo主题
  5.安装plumemo管理系统
- 6.退出
+ 6.备份博客数据库
+ 7.退出
 )
 
 # 系统环境搭建
@@ -148,6 +149,10 @@ function plememo_install(){
         step_admin_fun 4
         ;;
         6)
+        echo_fun 1  ${install_list[5]}
+        backup_data_fun 5
+        ;;
+        7)
         echo_fun 1 您已经退出
         exit
         ;;
@@ -220,6 +225,59 @@ function check_cluster_etc_profile(){
         fi
      fi
 }
+
+
+#-------------------------------------------------------博客数据库备份脚本-------------------------------------------------
+function backup_data_fun(){
+
+    echo_fun 4 警告！备份过程中博客守护进程将暂时关闭
+    read -p "是否继续[y/n]：" answer
+    echo ''
+    if [ $answer == 'y' ];then
+      echo_fun 4 请输入mysql的用户名[ENTER默认plumemo]
+      read -p "username=" username
+      echo ''
+      if [ ! -n "${username}" ]; then
+        username=plumemo
+      fi
+
+      echo_fun 4 请输入mysql的密码[ENTER默认123456]
+      read -p "password=" password
+      echo ''
+      if [ ! -n "${password}" ]; then
+        password=123456
+      fi
+
+      echo_fun 4 请输入博客的数据库名称[ENTER默认plumemo]
+      read -p "database=" database
+      echo ''
+      if [ ! -n "${database}" ]; then
+        database=plumemo
+      fi
+
+      echo_fun 4 请输入备份目录[ENTER默认/opt/plumemo_backup]
+      read -p "backup_dir=" backup_dir
+      echo ''
+      if [ ! -n "${backup_dir}" ]; then
+        backup_dir=/opt/plumemo_backup
+      fi
+
+      if [ $(test -d ${backup_dir} && echo 1 || echo 0 ) -eq 0 ];then
+        echo_fun 4 备份路径不存在，已自动创建
+        mkdir -p ${backup_dir}
+      fi
+      
+      backup_time="`date +%Y%m%d-%H:%m:%s`"
+      echo_fun 4 备份时间: ${backup_time}
+      echo_fun 4 备份目录：${backup_dir}，开始备份
+      systemctl stop plumemo.service
+      mysqldump -u${username} -p${password} --databases ${database} > /dev/null 2>&1 | gzip > ${backup_dir}/plumemo_backup_${backup_time}.sql.gz
+      systemctl start plumemo.service
+      echo_fun 4 备份完成，请自行检查备份文件: ${backup_dir}/plumemo_backup_${backup_time}.sql.gz
+    fi
+    
+}
+
 
 #---------------------------------------------------------theme安装脚本----------------------------------------------------
 
@@ -305,8 +363,18 @@ function init_admin(){
 }
 
 function create_start_exec(){
-   echo_fun 1 下面我们会为您生成启动脚本,请填写数据库相关信息
-    rm -f ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
+    SERVICE_HOME=/etc/systemd/system/plumemo.service
+    echo_fun 1 下面我们会为您生成启动脚本,请填写数据库相关信息
+    rm -f ${SERVICE_HOME}
+    
+    # service文件要求绝对路径
+    JAVA_HOME=$JAVA_HOME
+    echo ''
+    if [ ! -n "${JAVA_HOME}" ]; then
+      echo_fun 5 您的环境中可能未安装jdk，请安装后或配置并刷新环境变量后重新运行此脚本
+      exit
+    fi
+
     echo_fun 4 请输入mysql的用户名[ENTER默认plumemo]
     read -p "username=" username
     echo ''
@@ -337,30 +405,41 @@ function create_start_exec(){
 
     echo_fun 5 正在为您生成脚本
 
-    echo -e '#!/bin/bash -l'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'var='${ADMIN_PLUMEMO_INSTALL_PATH}'/plumemo-'$1'.jar'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'JARFILE=plumemo-'$1'.jar' >> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'PID=$(ps -ef|grep -w "$var" | grep -v grep |awk '\''{printf $2}'\'')'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
+    echo -e '[Unit]'>> ${SERVICE_HOME}
+    echo -e 'Description=Plumemo'>> ${SERVICE_HOME}
+    echo -e 'Documentation=https://www.plumemo.com/' >> ${SERVICE_HOME}
+    echo -e 'After=network.target remote-fs.target nss-lookup.target'>> ${SERVICE_HOME}
+    echo -e ''>> ${SERVICE_HOME}
 
-    echo -e 'if [ ! -d "./logs" ]; then'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '    mkdir ./logs'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'fi'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'if [ ! -n "$PID" ]; then'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '    echo "pid is null"'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '    nohup $JAVA_HOME/bin/java -jar $var --MYSQL_USERNAME='${username}'  --MYSQL_PASSWORD='${password}'  --MYSQL_DATABASE=jdbc:mysql://'${ip}':3306/'${database}'?useSSL=false&characterEncoding=utf8 > $(pwd "$JARFILE")/logs/startlog.log &'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '  exit'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'else'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '  echo "pid not null"'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'fi'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'kill -9 ${PID}'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '\nif [ $? -eq 0 ];then'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '  echo "kill $JARFILE success"'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '  nohup $JAVA_HOME/bin/java -jar $var  --MYSQL_USERNAME='${username}'  --MYSQL_PASSWORD='${password}'  --MYSQL_DATABASE=jdbc:mysql://'${ip}':3306/'${database}'?useSSL=false&characterEncoding=utf8 > $(pwd "$JARFILE")/logs/startlog.log &'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'else'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e '   echo "kill $JARFILE fail"'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
-    echo -e 'fi'>> ${ADMIN_PLUMEMO_INSTALL_PATH}/deploy.sh
+    echo -e '[Service]'>> ${SERVICE_HOME}
+    echo -e 'Type=forking'>> ${SERVICE_HOME}
+    echo -e 'Environment="JAR_HOME='${ADMIN_PLUMEMO_INSTALL_PATH}'"'>> ${SERVICE_HOME}
+    echo -e 'Environment="JAR_NAME=plumemo-'$1'.jar"'>> ${SERVICE_HOME}
+    echo -e 'Environment="JVM_OPTIONS=-server -Xms512m -Xmx512m"'>> ${SERVICE_HOME}
+    echo -e ''>> ${SERVICE_HOME}
 
-    echo_fun 5 脚本生成成功
+    echo -e 'Environment="MYSQL_USERNAME=--MYSQL_USERNAME='${username}'"'>> ${SERVICE_HOME}
+    echo -e 'Environment="MYSQL_PASSWORD=--MYSQL_PASSWORD='${password}'"'>> ${SERVICE_HOME}
+    echo -e 'Environment="MYSQL_CONNECTION=--MYSQL_DATABASE=jdbc:mysql://'${ip}':3306/plumemo?useSSL=false&characterEncoding=utf8"'>> ${SERVICE_HOME}
+    echo -e ''>> ${SERVICE_HOME}
+    echo -e 'ExecStart=/bin/sh -c "'${JAVA_HOME}'/bin/java ${JVM_OPTIONS} -jar ${JAR_HOME}/${JAR_NAME} ${MYSQL_USERNAME} ${MYSQL_PASSWORD} ${MYSQL_CONNECTION}"'>> ${SERVICE_HOME}
+    echo -e 'ExecReload=/bin/kill -s HUP $MAINPID'>> ${SERVICE_HOME}
+    echo -e 'ExecStop=/bin/kill -s QUIT $MAINPID'>> ${SERVICE_HOME}
+    echo -e 'Restart=always'>> ${SERVICE_HOME}
+    echo -e ''>> ${SERVICE_HOME}
+
+    echo -e '[Install]'>> ${SERVICE_HOME}
+    echo -e 'WantedBy=multi-user.target'>> ${SERVICE_HOME}
+
+    chmod +x ${SERVICE_HOME}
+    systemctl daemon-reload
+    systemctl start plumemo.service
+
+    echo_fun 5 脚本生成成功，查看服务运行状态
+    echo_fun 5 systemctl status plumemo.service
+    echo ''
+    echo_fun 5 日志位置: /logs/plumemo-service.log
+    echo_fun 5 注意！若未运行，请检查${SERVICE_HOME} ${ADMIN_PLUMEMO_INSTALL_PATH}/plumemo-$1.jar以及是否存在，
 }
 
 function step_admin_fun(){
